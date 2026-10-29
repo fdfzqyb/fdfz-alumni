@@ -37,6 +37,7 @@ onMounted(async () => {
   loading.value = false
 })
 
+const isPublic = computed(() => original.value && ['open', 'contacting'].includes(original.value.status) && !original.value.answer_count)
 const needsApproval = computed(() => original.value && original.value.answer_count > 0)
 
 async function submit() {
@@ -57,7 +58,7 @@ async function submit() {
   const { data, error: e } = await supabase.rpc('alumni_change_my_question', { p_id: editId, p_kind: 'edit', p: f })
   busy.value = false
   if (e) return (error.value = errorText(e))
-  toast(data === 'done' ? '已修改' : '已送出修改申請，校友工作部同意後生效')
+  toast(data === 'done' ? '已修改' : data === 'reopened' ? '已修改，校友工作部重新看過後會再公開' : '已送出修改申請，校友工作部同意後生效')
   router.replace(`/q/${editId}`)
 }
 </script>
@@ -74,6 +75,9 @@ async function submit() {
       <template v-else>
         <div v-if="!editId" class="note gold"><Icon name="cap" :size="20" />
           <span>{{ t('問題送出後先是「未公開」，校友工作部看過後才會讓其他同學看到，再去請教合適的校友代為回答。') }}</span>
+        </div>
+        <div v-else-if="isPublic" class="note warn"><Icon name="warn" :size="20" />
+          <span>{{ t('這個問題已經公開。修改後會先退回「未公開」，等校友工作部重新看過才會再讓其他同學看到。') }}</span>
         </div>
         <div v-if="needsApproval" class="note warn"><Icon name="warn" :size="20" />
           <span>{{ t('這個問題已經有校友回答，修改要等校友工作部同意後才會生效。') }}</span>

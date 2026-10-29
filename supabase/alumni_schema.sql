@@ -157,7 +157,10 @@ alter table alumni_notifications   enable row level security;
 -- 只開讀取規則；新增、修改、刪除都要透過下面的函數
 create policy "校友工作部可看名單" on alumni_staff for select using (alumni_is_staff() or is_admin());
 create policy "已審核同學可看分類" on alumni_categories for select using (is_approved());
-create policy "看得到的問題" on alumni_questions for select using (alumni_can_see(id));
+-- 原始表只給提問者本人和校友工作部：裡面有 author_id，開放給其他同學讀的話，匿名提問可以被反推出是誰。
+-- 其他同學讀問題一律走下面的 alumni_question_feed（已去掉身分）。
+create policy "看自己的問題或校友工作部" on alumni_questions for select
+  using (is_approved() and (author_id = auth.uid() or alumni_is_staff()));
 create policy "看得到問題的代答" on alumni_answers for select using (alumni_can_see(question_id));
 create policy "看自己的我也想問" on alumni_metoo for select using (user_id = auth.uid());
 create policy "看自己的有幫助" on alumni_helpful for select using (user_id = auth.uid());
@@ -240,6 +243,7 @@ begin
 end $$;
 
 -- 改或刪自己的問題。還沒有代答時直接生效，回傳 'done'；
+-- 已公開的問題直接修改後會退回「未公開」，等校友工作部重新看過再公開，回傳 'reopened'（不然公開後可以改成任何內容）；
 -- 已有代答時送出申請等校友工作部同意，回傳 'requested'。p 是新的表單內容（刪除時可以只放 reason）
 create function alumni_change_my_question(p_id bigint, p_kind alumni_req_kind, p jsonb default '{}')
 returns text
@@ -260,8 +264,10 @@ begin
       delete from alumni_questions where id = p_id;
     else
       update alumni_questions set category_id = (f->>'category_id')::bigint, title = f->>'title', body = f->>'body',
-        wish = f->>'wish', anonymous = (f->>'anonymous')::boolean, edited_at = now()
+        wish = f->>'wish', anonymous = (f->>'anonymous')::boolean, edited_at = now(),
+        status = case when status in ('open', 'contacting') then 'hidden'::alumni_q_status else status end
       where id = p_id;
+      if q.status in ('open', 'contacting') then return 'reopened'; end if;
     end if;
     return 'done';
   end if;
