@@ -54,10 +54,15 @@ select pg_temp.who('20240103'), alumni_toggle_metoo(1), alumni_toggle_metoo(1), 
 select pg_temp.who('20240104'), alumni_toggle_metoo(1);
 select metoo_count, metoo_mine from alumni_question_feed where id = 1;
 
-\echo '--- 還沒有代答：提問者直接修改，問題保持公開'
+\echo '--- 還沒有代答：提問者直接修改，公開的問題退回未公開（reopened）'
 select pg_temp.who('20240103'), pg_temp.fails($$select alumni_change_my_question(1, 'edit', '{"title":"x","body":"y","category_id":1}')$$);
 select pg_temp.who('20240102'), alumni_change_my_question(1, 'edit', '{"title":"理科生怎麼選專業","body":"計算機還是生物？","wish":"","category_id":2,"anonymous":true}');
 select title, status, edited_at is not null from alumni_questions where id = 1;
+
+\echo '--- 原始表：其他同學讀不到任何問題（匿名者不能被反推），提問者和校友工作部讀得到'
+select pg_temp.who('20240103'), (select count(*) from alumni_questions);
+select pg_temp.who('20240102'), (select count(*) from alumni_questions);
+select pg_temp.who('20240101'), (select count(*) from alumni_questions);
 
 \echo '--- 代答：一般同學不能貼；屆別錯會擋；貼上後變已回答並通知提問者'
 select pg_temp.who('20240103'), pg_temp.fails($$select alumni_save_answer(1, null, '{"cohort":2019,"affiliation":"某大學","body":"先看課表"}')$$);
