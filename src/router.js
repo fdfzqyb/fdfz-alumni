@@ -31,7 +31,7 @@ export const router = createRouter({
 
 router.beforeEach(async (to) => {
   await authReady
-  // 沒登入、校園卡還沒通過、權益部重設了臨時密碼：都送到帳號中心處理，好了會回到這一頁
+  // 沒登入、校園卡還沒通過、管理員重設了臨時密碼：都送到帳號中心處理，好了會回到這一頁
   const fix = fixPath()
   if (fix) {
     window.location.assign(accountUrl(fix, location.origin + to.fullPath))
